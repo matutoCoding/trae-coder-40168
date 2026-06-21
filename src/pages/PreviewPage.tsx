@@ -3,6 +3,7 @@ import { ArrowLeft, Copy, Check, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import { WechatSimulator } from '@/components/preview/WechatSimulator';
 import { PlaceholderEditor } from '@/components/preview/PlaceholderEditor';
+import { DraftManager } from '@/components/generator/DraftManager';
 import { useScriptStore, replacePlaceholders } from '@/store/useScriptStore';
 import { cn } from '@/lib/utils';
 import type { ScriptVersion } from '@/types';
@@ -43,7 +44,7 @@ export function PreviewPage() {
   
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between animate-fade-in-up">
+      <div className="flex items-center justify-between animate-fade-in-up flex-wrap gap-4">
         <div>
           <button
             onClick={() => navigate('/')}
@@ -60,29 +61,33 @@ export function PreviewPage() {
           </p>
         </div>
         
-        {hasData && (
-          <button
-            onClick={handleCopy}
-            className={cn(
-              'flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-300',
-              copied 
-                ? 'bg-gentle-500 text-white' 
-                : 'btn-accent'
-            )}
-          >
-            {copied ? (
-              <>
-                <Check className="w-5 h-5" />
-                <span>已复制</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-5 h-5" />
-                <span>复制话术</span>
-              </>
-            )}
-          </button>
-        )}
+        <div className="flex items-center gap-3 flex-wrap">
+          <DraftManager showSaveButton={!!hasData} />
+          
+          {hasData && (
+            <button
+              onClick={handleCopy}
+              className={cn(
+                'flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-300',
+                copied 
+                  ? 'bg-gentle-500 text-white' 
+                  : 'btn-accent'
+              )}
+            >
+              {copied ? (
+                <>
+                  <Check className="w-5 h-5" />
+                  <span>已复制</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-5 h-5" />
+                  <span>复制话术</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
       
       {!hasData && (
@@ -93,21 +98,26 @@ export function PreviewPage() {
           <h3 className="font-serif font-semibold text-lg text-ink mb-2">
             暂无预览内容
           </h3>
-          <p className="text-gray-500 text-sm mb-6">
+          <p className="text-gray-500 text-sm mb-4">
             请先在话术生成页面选择人群和目的，生成话术后再预览
           </p>
-          <button
-            onClick={() => navigate('/')}
-            className="btn-primary"
-          >
-            去生成话术
-          </button>
+          <p className="text-gray-400 text-xs mb-6">
+            💡 也可以点击上方"我的方案"加载已保存的草稿
+          </p>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <button
+              onClick={() => navigate('/')}
+              className="btn-primary"
+            >
+              去生成话术
+            </button>
+          </div>
         </div>
       )}
       
       {hasData && currentScript && (
         <>
-          <div className="flex gap-2 animate-fade-in-up stagger-1">
+          <div className="flex gap-2 animate-fade-in-up stagger-1 flex-wrap">
             {versionOptions.map((option) => (
               <button
                 key={option.value}
@@ -115,7 +125,12 @@ export function PreviewPage() {
                 className={cn(
                   'px-4 py-2 rounded-xl font-medium transition-all duration-300',
                   selectedVersion === option.value
-                    ? `bg-${option.color}-${option.color === 'gentle' ? '500' : option.color === 'primary' ? '600' : '500'} text-white shadow-card`
+                    ? cn(
+                        'text-white shadow-card',
+                        option.color === 'gentle' && 'bg-gentle-500',
+                        option.color === 'primary' && 'bg-primary-600',
+                        option.color === 'accent' && 'bg-accent-500'
+                      )
                     : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
                 )}
               >
@@ -189,6 +204,12 @@ export function PreviewPage() {
                   <div>
                     <p className="text-gray-500">话术版本</p>
                     <p className="font-medium text-ink">{currentScript.versionName}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">门店信息</p>
+                    <p className="font-medium text-ink text-xs">
+                      {placeholders.storeAddress}
+                    </p>
                   </div>
                 </div>
               </div>

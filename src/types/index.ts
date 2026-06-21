@@ -1,6 +1,7 @@
 export type AudienceId = 'hypertension' | 'personal-account' | 'family-binding';
 export type PurposeId = 'expiry-reminder' | 'pharmacist-appointment' | 'repurchase' | 'policy-explain';
 export type ScriptVersion = 'gentle' | 'professional' | 'family';
+export type SortMetric = 'consultation' | 'visit' | 'redemption';
 
 export interface AudienceGroup {
   id: AudienceId;
@@ -44,6 +45,47 @@ export interface PlaceholderConfig {
   consultationTime: string;
 }
 
+export interface DraftScheme {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  audienceId: AudienceId | null;
+  purposeId: PurposeId | null;
+  selectedVersion: ScriptVersion | null;
+  placeholders: PlaceholderConfig;
+}
+
+export interface CSVRowValidation {
+  rowIndex: number;
+  isValid: boolean;
+  errors: string[];
+  data: {
+    audienceId: AudienceId;
+    purposeId: PurposeId;
+    scriptVersion: ScriptVersion;
+    contactDate: string;
+    sentCount: number | null;
+    consultationCount: number | null;
+    visitCount: number | null;
+    redemptionCount: number | null;
+  };
+  rawValues: Record<string, string>;
+}
+
+export interface CrossComparisonData {
+  audienceId: AudienceId;
+  purposeId: PurposeId;
+  scriptVersion: ScriptVersion;
+  sentCount: number;
+  consultationCount: number;
+  visitCount: number;
+  redemptionCount: number;
+  consultationRate: number;
+  visitRate: number;
+  redemptionRate: number;
+}
+
 export interface ScriptGeneratorState {
   selectedAudience: AudienceId | null;
   selectedPurpose: PurposeId | null;
@@ -51,6 +93,8 @@ export interface ScriptGeneratorState {
   generatedScripts: ScriptTemplate[];
   placeholders: PlaceholderConfig;
   contactRecords: ContactRecord[];
+  draftSchemes: DraftScheme[];
+  lastImportedDateRange: { start: string; end: string } | null;
   setSelectedAudience: (id: AudienceId | null) => void;
   setSelectedPurpose: (id: PurposeId | null) => void;
   setSelectedVersion: (version: ScriptVersion | null) => void;
@@ -59,4 +103,10 @@ export interface ScriptGeneratorState {
   addContactRecord: (record: Omit<ContactRecord, 'id'>) => void;
   importContactRecords: (records: Omit<ContactRecord, 'id'>[]) => void;
   clearSelection: () => void;
+  saveDraftScheme: (name: string) => DraftScheme;
+  updateDraftScheme: (id: string, updates: Partial<DraftScheme>) => void;
+  deleteDraftScheme: (id: string) => void;
+  loadDraftScheme: (id: string) => void;
+  duplicateDraftScheme: (id: string, newName: string) => DraftScheme;
+  setLastImportedDateRange: (range: { start: string; end: string } | null) => void;
 }

@@ -2,6 +2,7 @@ import { Sparkles, RotateCcw } from 'lucide-react';
 import { AudienceSelector } from '@/components/generator/AudienceSelector';
 import { PurposeSelector } from '@/components/generator/PurposeSelector';
 import { ScriptCard } from '@/components/generator/ScriptCard';
+import { DraftManager } from '@/components/generator/DraftManager';
 import { useScriptStore } from '@/store/useScriptStore';
 import { audienceGroups, contactPurposes } from '@/data/mockData';
 import { useState, useEffect } from 'react';
@@ -45,13 +46,16 @@ export function GeneratorPage() {
   
   return (
     <div className="space-y-8">
-      <div className="animate-fade-in-up">
-        <h2 className="font-serif font-bold text-2xl text-ink mb-2">
-          话术生成
-        </h2>
-        <p className="text-gray-500">
-          选择触达人群和目的，系统将为您生成三版合规话术
-        </p>
+      <div className="animate-fade-in-up flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h2 className="font-serif font-bold text-2xl text-ink mb-2">
+            话术生成
+          </h2>
+          <p className="text-gray-500">
+            选择触达人群和目的，系统将为您生成三版合规话术
+          </p>
+        </div>
+        <DraftManager />
       </div>
       
       <AudienceSelector
@@ -66,7 +70,7 @@ export function GeneratorPage() {
         onSelect={setSelectedPurpose}
       />
       
-      <div className="flex gap-4 animate-fade-in-up stagger-2">
+      <div className="flex gap-4 animate-fade-in-up stagger-2 flex-wrap">
         <button
           onClick={handleGenerate}
           disabled={!canGenerate || isGenerating}
@@ -95,6 +99,9 @@ export function GeneratorPage() {
           </h3>
           <p className="text-gray-500 text-sm">
             系统将根据您的选择，自动生成温和提醒、药师专业、家属协助三个版本的合规话术
+          </p>
+          <p className="text-gray-400 text-xs mt-3">
+            💡 也可以点击右上角"我的方案"加载已保存的草稿
           </p>
         </div>
       )}

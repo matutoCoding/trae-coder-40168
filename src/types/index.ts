@@ -37,6 +37,7 @@ export interface ContactRecord {
   consultationCount: number;
   visitCount: number;
   redemptionCount: number;
+  importBatchId?: string;
 }
 
 export interface PlaceholderConfig {
@@ -48,6 +49,7 @@ export interface PlaceholderConfig {
 export interface DraftScheme {
   id: string;
   name: string;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
   audienceId: AudienceId | null;
@@ -86,6 +88,13 @@ export interface CrossComparisonData {
   redemptionRate: number;
 }
 
+export interface ImportBatch {
+  batchId: string;
+  importedAt: string;
+  recordCount: number;
+  dateRange: { start: string; end: string };
+}
+
 export interface ScriptGeneratorState {
   selectedAudience: AudienceId | null;
   selectedPurpose: PurposeId | null;
@@ -95,6 +104,7 @@ export interface ScriptGeneratorState {
   contactRecords: ContactRecord[];
   draftSchemes: DraftScheme[];
   lastImportedDateRange: { start: string; end: string } | null;
+  importBatches: ImportBatch[];
   setSelectedAudience: (id: AudienceId | null) => void;
   setSelectedPurpose: (id: PurposeId | null) => void;
   setSelectedVersion: (version: ScriptVersion | null) => void;
@@ -103,10 +113,11 @@ export interface ScriptGeneratorState {
   addContactRecord: (record: Omit<ContactRecord, 'id'>) => void;
   importContactRecords: (records: Omit<ContactRecord, 'id'>[]) => void;
   clearSelection: () => void;
-  saveDraftScheme: (name: string) => DraftScheme;
+  saveDraftScheme: (name: string, tags?: string[]) => DraftScheme;
   updateDraftScheme: (id: string, updates: Partial<DraftScheme>) => void;
   deleteDraftScheme: (id: string) => void;
   loadDraftScheme: (id: string) => void;
   duplicateDraftScheme: (id: string, newName: string) => DraftScheme;
   setLastImportedDateRange: (range: { start: string; end: string } | null) => void;
+  undoLastImport: () => { removedCount: number } | null;
 }

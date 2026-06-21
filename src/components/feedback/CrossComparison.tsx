@@ -26,6 +26,8 @@ const metricConfig: Record<SortMetric, { label: string; icon: typeof Users; colo
   redemption: { label: '核销率', icon: CheckCircle, color: 'text-accent-600' }
 };
 
+const SEP = '::';
+
 export function CrossComparison({ records }: CrossComparisonProps) {
   const [selectedAudience, setSelectedAudience] = useState<'all' | AudienceId>('all');
   const [selectedPurpose, setSelectedPurpose] = useState<'all' | PurposeId>('all');
@@ -42,7 +44,7 @@ export function CrossComparison({ records }: CrossComparisonProps) {
     const grouped = new Map<string, CrossComparisonData>();
 
     filtered.forEach(record => {
-      const key = `${record.audienceId}-${record.purposeId}-${record.scriptVersion}`;
+      const key = [record.audienceId, record.purposeId, record.scriptVersion].join(SEP);
       const existing = grouped.get(key);
 
       if (existing) {
@@ -85,17 +87,17 @@ export function CrossComparison({ records }: CrossComparisonProps) {
   }, [comparisonData, sortMetric, sortAsc]);
 
   const groupedByAudienceAndPurpose = useMemo(() => {
-    const groups = new Map<string, CrossComparisonData[]>();
+    const groups = new Map<string, { audienceId: AudienceId; purposeId: PurposeId; items: CrossComparisonData[] }>();
     
     sortedData.forEach(item => {
-      const key = `${item.audienceId}-${item.purposeId}`;
-      if (!groups.has(key)) {
-        groups.set(key, []);
+      const groupKey = [item.audienceId, item.purposeId].join(SEP);
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, { audienceId: item.audienceId, purposeId: item.purposeId, items: [] });
       }
-      groups.get(key)!.push(item);
+      groups.get(groupKey)!.items.push(item);
     });
     
-    return Array.from(groups.entries());
+    return Array.from(groups.values());
   }, [sortedData]);
 
   const handleSort = (metric: SortMetric) => {
@@ -189,12 +191,11 @@ export function CrossComparison({ records }: CrossComparisonProps) {
         </div>
       ) : (
         <div className="space-y-6">
-          {groupedByAudienceAndPurpose.map(([key, items]) => {
-            const [audienceId, purposeId] = key.split('-') as [AudienceId, PurposeId];
+          {groupedByAudienceAndPurpose.map(({ audienceId, purposeId, items }) => {
             const maxRate = Math.max(...items.map(i => i[`${sortMetric}Rate` as keyof CrossComparisonData] as number), 1);
 
             return (
-              <div key={key} className="border border-gray-100 rounded-xl overflow-hidden">
+              <div key={[audienceId, purposeId].join(SEP)} className="border border-gray-100 rounded-xl overflow-hidden">
                 <div className="bg-gray-50 px-4 py-3 border-b border-gray-100">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold text-ink">{getAudienceName(audienceId)}</span>
@@ -206,11 +207,9 @@ export function CrossComparison({ records }: CrossComparisonProps) {
                 <div className="p-4 space-y-4">
                   {items.map((item) => {
                     const colors = versionColors[item.scriptVersion];
-                    const currentRate = item[`${sortMetric}Rate` as keyof CrossComparisonData] as number;
-                    const barWidth = (currentRate / maxRate) * 100;
 
                     return (
-                      <div key={`${item.audienceId}-${item.purposeId}-${item.scriptVersion}`}>
+                      <div key={[item.audienceId, item.purposeId, item.scriptVersion].join(SEP)}>
                         <div className="flex items-center justify-between mb-2">
                           <span className={cn(
                             'px-3 py-1 rounded-full text-xs font-medium',

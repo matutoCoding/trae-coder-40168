@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Save, FolderOpen, Edit3, Trash2, Copy, Check, X, FileText } from 'lucide-react';
+import { Save, FolderOpen, Edit3, Trash2, Copy, Check, X, FileText, Search, Tag } from 'lucide-react';
 import { useScriptStore } from '@/store/useScriptStore';
 import type { DraftScheme } from '@/types';
 import { audienceGroups, contactPurposes } from '@/data/mockData';
@@ -9,6 +9,8 @@ interface DraftManagerProps {
   showSaveButton?: boolean;
 }
 
+const PRESET_TAGS = ['门店活动', '会员日', '季度复购', '新品推广', '节假日', '慢病管理', '个账权益', '家庭账户'];
+
 export function DraftManager({ showSaveButton = true }: DraftManagerProps) {
   const {
     draftSchemes,
@@ -16,6 +18,7 @@ export function DraftManager({ showSaveButton = true }: DraftManagerProps) {
     loadDraftScheme,
     deleteDraftScheme,
     duplicateDraftScheme,
+    updateDraftScheme,
     selectedAudience,
     selectedPurpose
   } = useScriptStore();
@@ -23,19 +26,42 @@ export function DraftManager({ showSaveButton = true }: DraftManagerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [newSchemeName, setNewSchemeName] = useState('');
+  const [newSchemeTags, setNewSchemeTags] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [lastSavedId, setLastSavedId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
 
   const canSave = selectedAudience && selectedPurpose;
 
   const handleSave = () => {
     if (!newSchemeName.trim()) return;
-    const scheme = saveDraftScheme(newSchemeName.trim());
+    const scheme = saveDraftScheme(newSchemeName.trim(), newSchemeTags);
     setLastSavedId(scheme.id);
     setNewSchemeName('');
+    setNewSchemeTags([]);
+    setCustomTagInput('');
     setShowSaveModal(false);
     setTimeout(() => setLastSavedId(null), 2000);
+  };
+
+  const handleAddCustomTag = () => {
+    const tag = customTagInput.trim();
+    if (tag && !newSchemeTags.includes(tag) && !PRESET_TAGS.includes(tag)) {
+      setNewSchemeTags(prev => [...prev, tag]);
+      setCustomTagInput('');
+    } else if (PRESET_TAGS.includes(tag) && !newSchemeTags.includes(tag)) {
+      setNewSchemeTags(prev => [...prev, tag]);
+      setCustomTagInput('');
+    }
+  };
+
+  const togglePresetTag = (tag: string) => {
+    setNewSchemeTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
   };
 
   const handleLoad = (scheme: DraftScheme) => {
@@ -54,7 +80,6 @@ export function DraftManager({ showSaveButton = true }: DraftManagerProps) {
 
   const handleSaveEdit = () => {
     if (editingId && editingName.trim()) {
-      const { updateDraftScheme } = useScriptStore.getState();
       updateDraftScheme(editingId, { name: editingName.trim() });
     }
     setEditingId(null);
@@ -71,6 +96,23 @@ export function DraftManager({ showSaveButton = true }: DraftManagerProps) {
     return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
+  const allTags = Array.from(new Set(draftSchemes.flatMap(s => s.tags || [])));
+
+  const filteredSchemes = draftSchemes
+    .filter(scheme => {
+      if (activeTagFilter && !(scheme.tags || []).includes(activeTagFilter)) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const nameMatch = scheme.name.toLowerCase().includes(q);
+        const tagMatch = (scheme.tags || []).some(t => t.toLowerCase().includes(q));
+        const audienceMatch = getAudienceName(scheme.audienceId).toLowerCase().includes(q);
+        const purposeMatch = getPurposeName(scheme.purposeId).toLowerCase().includes(q);
+        return nameMatch || tagMatch || audienceMatch || purposeMatch;
+      }
+      return true;
+    })
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
   return (
     <>
       <div className="flex items-center gap-2">
@@ -81,6 +123,7 @@ export function DraftManager({ showSaveButton = true }: DraftManagerProps) {
                 const now = new Date();
                 const defaultName = `${getAudienceName(selectedAudience)}-${getPurposeName(selectedPurpose)}-${now.getMonth() + 1}${now.getDate()}`;
                 setNewSchemeName(defaultName);
+                setNewSchemeTags([]);
                 setShowSaveModal(true);
               }
             }}
@@ -147,6 +190,63 @@ export function DraftManager({ showSaveButton = true }: DraftManagerProps) {
                 />
               </div>
 
+              <div>
+                <label className="text-sm text-gray-600 mb-2 block">标签（可选）</label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {PRESET_TAGS.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => togglePresetTag(tag)}
+                      className={cn(
+                        'px-3 py-1 rounded-full text-xs font-medium transition-all border',
+                        newSchemeTags.includes(tag)
+                          ? 'bg-primary-50 border-primary-300 text-primary-600'
+                          : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                      )}
+                    >
+                      {newSchemeTags.includes(tag) && '✓ '}{tag}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={customTagInput}
+                    onChange={(e) => setCustomTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomTag();
+                      }
+                    }}
+                    placeholder="自定义标签，回车添加"
+                    className="flex-1 input-field py-1.5 text-sm"
+                  />
+                  <button
+                    onClick={handleAddCustomTag}
+                    disabled={!customTagInput.trim()}
+                    className="px-3 py-1.5 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-40"
+                  >
+                    添加
+                  </button>
+                </div>
+                {newSchemeTags.filter(t => !PRESET_TAGS.includes(t)).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {newSchemeTags.filter(t => !PRESET_TAGS.includes(t)).map(tag => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 text-primary-600 text-xs rounded-full"
+                      >
+                        {tag}
+                        <button onClick={() => setNewSchemeTags(prev => prev.filter(t => t !== tag))}>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="p-4 bg-gray-50 rounded-xl space-y-2">
                 <p className="text-xs text-gray-500">方案内容预览</p>
                 <div className="grid grid-cols-2 gap-3 text-sm">
@@ -202,16 +302,72 @@ export function DraftManager({ showSaveButton = true }: DraftManagerProps) {
               </button>
             </div>
 
+            <div className="p-4 border-b border-gray-100 space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="搜索方案名称、标签、人群..."
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {allTags.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Tag className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                  <button
+                    onClick={() => setActiveTagFilter(null)}
+                    className={cn(
+                      'px-2.5 py-1 rounded-full text-xs font-medium transition-all border',
+                      !activeTagFilter
+                        ? 'bg-primary-50 border-primary-300 text-primary-600'
+                        : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                    )}
+                  >
+                    全部
+                  </button>
+                  {allTags.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => setActiveTagFilter(activeTagFilter === tag ? null : tag)}
+                      className={cn(
+                        'px-2.5 py-1 rounded-full text-xs font-medium transition-all border',
+                        activeTagFilter === tag
+                          ? 'bg-primary-50 border-primary-300 text-primary-600'
+                          : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                      )}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="flex-1 overflow-y-auto scrollbar-thin p-5">
-              {draftSchemes.length === 0 ? (
+              {filteredSchemes.length === 0 ? (
                 <div className="h-64 flex flex-col items-center justify-center text-gray-500">
                   <FolderOpen className="w-16 h-16 mb-3 opacity-30" />
-                  <p className="text-sm">暂无保存的方案</p>
-                  <p className="text-xs mt-1">生成话术后可点击"保存方案"创建草稿</p>
+                  <p className="text-sm">
+                    {searchQuery || activeTagFilter ? '没有匹配的方案' : '暂无保存的方案'}
+                  </p>
+                  {!searchQuery && !activeTagFilter && (
+                    <p className="text-xs mt-1">生成话术后可点击"保存方案"创建草稿</p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {[...draftSchemes].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).map((scheme) => (
+                  {filteredSchemes.map((scheme) => (
                     <div
                       key={scheme.id}
                       className={cn(
@@ -259,6 +415,11 @@ export function DraftManager({ showSaveButton = true }: DraftManagerProps) {
                             <span className="text-xs px-2.5 py-1 bg-accent-50 text-accent-600 rounded-full">
                               {getPurposeName(scheme.purposeId)}
                             </span>
+                            {(scheme.tags || []).map(tag => (
+                              <span key={tag} className="text-xs px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full">
+                                {tag}
+                              </span>
+                            ))}
                           </div>
 
                           <p className="text-xs text-gray-400 mt-2">

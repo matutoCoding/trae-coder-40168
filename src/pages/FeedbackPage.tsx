@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Users, Store, CheckCircle, BarChart3, RefreshCw, Info, AlertCircle } from 'lucide-react';
+import { Calendar, Users, Store, CheckCircle, BarChart3, RefreshCw, Info, AlertCircle, Undo2, TrendingUp } from 'lucide-react';
 import { StatsCard } from '@/components/feedback/StatsCard';
 import { EffectChart } from '@/components/feedback/EffectChart';
 import { ScriptRanking } from '@/components/feedback/ScriptRanking';
 import { DataImport } from '@/components/feedback/DataImport';
 import { CrossComparison } from '@/components/feedback/CrossComparison';
+import { TrendView } from '@/components/feedback/TrendView';
 import { useScriptStore } from '@/store/useScriptStore';
 import type { AudienceId, PurposeId } from '@/types';
 import { audienceGroups, contactPurposes } from '@/data/mockData';
@@ -21,15 +22,17 @@ const purposeOptions = [
 ];
 
 export function FeedbackPage() {
-  const { contactRecords, lastImportedDateRange } = useScriptStore();
+  const { contactRecords, lastImportedDateRange, importBatches, undoLastImport, setLastImportedDateRange } = useScriptStore();
   const [audienceFilter, setAudienceFilter] = useState<string>('all');
   const [purposeFilter, setPurposeFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
     start: '2026-06-01',
     end: '2026-06-30'
   });
-  const [activeTab, setActiveTab] = useState<'overview' | 'comparison'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'comparison' | 'trend'>('overview');
   const [showImportAlert, setShowImportAlert] = useState(false);
+  const [showUndoConfirm, setShowUndoConfirm] = useState(false);
+  const [undoResult, setUndoResult] = useState<{ removedCount: number } | null>(null);
 
   useEffect(() => {
     if (lastImportedDateRange) {
@@ -74,6 +77,15 @@ export function FeedbackPage() {
     setShowImportAlert(false);
   };
 
+  const handleUndoImport = () => {
+    const result = undoLastImport();
+    if (result) {
+      setUndoResult(result);
+      setShowUndoConfirm(false);
+      setTimeout(() => setUndoResult(null), 3000);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="animate-fade-in-up">
@@ -84,6 +96,18 @@ export function FeedbackPage() {
           导入店员回填结果，查看各话术版本的转化效果
         </p>
       </div>
+
+      {undoResult && (
+        <div className="animate-fade-in-up bg-warning-50 border-2 border-warning-200 rounded-2xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Undo2 className="w-5 h-5 text-warning-600" />
+            <p className="text-sm font-medium text-warning-700">
+              已撤回最近一次导入，共移除 {undoResult.removedCount} 条记录
+            </p>
+          </div>
+          <button onClick={() => setUndoResult(null)} className="text-warning-500 hover:text-warning-700">×</button>
+        </div>
+      )}
 
       {showImportAlert && lastImportedDateRange && (
         <div className="animate-fade-in-up bg-gentle-50 border-2 border-gentle-200 rounded-2xl p-5">
@@ -123,15 +147,26 @@ export function FeedbackPage() {
             <Calendar className="w-5 h-5 text-primary-500" />
             筛选条件
           </h4>
-          {hasActiveFilter && (
-            <button
-              onClick={resetFilters}
-              className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 transition-colors"
-            >
-              <RefreshCw className="w-4 h-4" />
-              重置筛选
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {importBatches.length > 0 && (
+              <button
+                onClick={() => setShowUndoConfirm(true)}
+                className="flex items-center gap-1.5 text-sm text-warning-600 hover:text-warning-700 transition-colors"
+              >
+                <Undo2 className="w-4 h-4" />
+                撤回最近导入
+              </button>
+            )}
+            {hasActiveFilter && (
+              <button
+                onClick={resetFilters}
+                className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                重置筛选
+              </button>
+            )}
+          </div>
         </div>
         
         {hasActiveFilter && (
@@ -285,6 +320,18 @@ export function FeedbackPage() {
         >
           交叉对比分析
         </button>
+        <button
+          onClick={() => setActiveTab('trend')}
+          className={cn(
+            'px-5 py-2.5 rounded-xl text-sm font-medium transition-all',
+            activeTab === 'trend'
+              ? 'bg-primary-600 text-white shadow-card'
+              : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+          )}
+        >
+          <TrendingUp className="w-4 h-4 inline mr-1.5" />
+          趋势视图
+        </button>
       </div>
 
       {activeTab === 'overview' && (
@@ -386,6 +433,47 @@ export function FeedbackPage() {
       {activeTab === 'comparison' && (
         <div className="animate-fade-in-up">
           <CrossComparison records={filteredRecords} />
+        </div>
+      )}
+
+      {activeTab === 'trend' && (
+        <div className="animate-fade-in-up">
+          <TrendView records={filteredRecords} />
+        </div>
+      )}
+
+      {showUndoConfirm && importBatches.length > 0 && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-fade-in-up">
+            <div className="p-6 text-center space-y-4">
+              <div className="w-14 h-14 bg-warning-50 rounded-2xl flex items-center justify-center mx-auto">
+                <Undo2 className="w-7 h-7 text-warning-600" />
+              </div>
+              <div>
+                <h3 className="font-serif font-semibold text-lg text-ink">确认撤回导入</h3>
+                <p className="text-sm text-gray-500 mt-2">
+                  将撤回最近一次导入的 <span className="font-semibold text-warning-600">{importBatches[importBatches.length - 1].recordCount}</span> 条记录
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  日期范围：{importBatches[importBatches.length - 1].dateRange.start} ~ {importBatches[importBatches.length - 1].dateRange.end}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowUndoConfirm(false)}
+                  className="flex-1 btn-secondary py-2.5"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleUndoImport}
+                  className="flex-1 px-4 py-2.5 bg-warning-500 text-white rounded-xl hover:bg-warning-600 transition-colors text-sm font-medium"
+                >
+                  确认撤回
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

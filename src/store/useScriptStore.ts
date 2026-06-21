@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ScriptGeneratorState, AudienceId, PurposeId, ScriptVersion, PlaceholderConfig, ContactRecord, DraftScheme } from '@/types';
+import type { ScriptGeneratorState, AudienceId, PurposeId, ScriptVersion, PlaceholderConfig, ContactRecord, DraftScheme, ImportBatch } from '@/types';
 import { generateScriptTemplates } from '@/data/scriptTemplates';
 import { mockContactRecords } from '@/data/mockData';
 
@@ -21,6 +21,7 @@ export const useScriptStore = create<ScriptGeneratorState>()(
       contactRecords: mockContactRecords,
       draftSchemes: [],
       lastImportedDateRange: null,
+      importBatches: [],
       
       setSelectedAudience: (id) => set({ selectedAudience: id, generatedScripts: [] }),
       
@@ -56,19 +57,29 @@ export const useScriptStore = create<ScriptGeneratorState>()(
         );
         
         if (validRecords.length > 0) {
+          const batchId = `batch-${Date.now()}`;
           const dates = validRecords.map(r => r.contactDate).sort();
           const startDate = dates[0];
           const endDate = dates[dates.length - 1];
+          
+          const batch: ImportBatch = {
+            batchId,
+            importedAt: new Date().toISOString(),
+            recordCount: validRecords.length,
+            dateRange: { start: startDate, end: endDate }
+          };
           
           set((state) => ({
             contactRecords: [
               ...state.contactRecords,
               ...validRecords.map((record, index) => ({
                 ...record,
-                id: `${Date.now()}-${index}`
+                id: `${batchId}-${index}`,
+                importBatchId: batchId
               }))
             ],
-            lastImportedDateRange: { start: startDate, end: endDate }
+            lastImportedDateRange: { start: startDate, end: endDate },
+            importBatches: [...state.importBatches, batch]
           }));
         }
       },
@@ -80,12 +91,13 @@ export const useScriptStore = create<ScriptGeneratorState>()(
         generatedScripts: []
       }),
       
-      saveDraftScheme: (name) => {
+      saveDraftScheme: (name, tags = []) => {
         const state = get();
         const now = new Date().toISOString();
         const scheme: DraftScheme = {
           id: `draft-${Date.now()}`,
           name,
+          tags,
           createdAt: now,
           updatedAt: now,
           audienceId: state.selectedAudience,
@@ -138,6 +150,7 @@ export const useScriptStore = create<ScriptGeneratorState>()(
           ...original,
           id: `draft-${Date.now()}`,
           name: newName,
+          tags: [...original.tags],
           createdAt: now,
           updatedAt: now
         };
@@ -149,7 +162,24 @@ export const useScriptStore = create<ScriptGeneratorState>()(
         return newScheme;
       },
       
-      setLastImportedDateRange: (range) => set({ lastImportedDateRange: range })
+      setLastImportedDateRange: (range) => set({ lastImportedDateRange: range }),
+      
+      undoLastImport: () => {
+        const state = get();
+        if (state.importBatches.length === 0) return null;
+        
+        const lastBatch = state.importBatches[state.importBatches.length - 1];
+        const batchId = lastBatch.batchId;
+        const removedCount = state.contactRecords.filter(r => r.importBatchId === batchId).length;
+        
+        set({
+          contactRecords: state.contactRecords.filter(r => r.importBatchId !== batchId),
+          importBatches: state.importBatches.filter(b => b.batchId !== batchId),
+          lastImportedDateRange: null
+        });
+        
+        return { removedCount };
+      }
     }),
     {
       name: 'script-generator-storage',
@@ -157,7 +187,8 @@ export const useScriptStore = create<ScriptGeneratorState>()(
         placeholders: state.placeholders,
         contactRecords: state.contactRecords,
         draftSchemes: state.draftSchemes,
-        lastImportedDateRange: state.lastImportedDateRange
+        lastImportedDateRange: state.lastImportedDateRange,
+        importBatches: state.importBatches
       })
     }
   )
